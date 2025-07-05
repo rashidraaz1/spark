@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare DNS Manager - Test Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #005a8b;
+        }
+        .response {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🌤️ Cloudflare DNS Manager - Test Interface</h1>
+    
+    <div class="container">
+        <h2>🔧 Configuration</h2>
+        <div class="form-group">
+            <label for="baseUrl">API Base URL:</label>
+            <input type="text" id="baseUrl" value="https://smartfeed.spunkydeals.com/sparkpostapi/cloudflare_api.php">
+        </div>
+        <div class="form-group">
+            <label for="testDomain">Test Domain:</label>
+            <input type="text" id="testDomain" value="example.com" placeholder="Enter a domain to test with">
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- Get Nameservers -->
+        <div class="container">
+            <h2>📡 Get Nameservers</h2>
+            <div class="form-group">
+                <label for="nsDomain">Domain:</label>
+                <input type="text" id="nsDomain" placeholder="example.com">
+            </div>
+            <button onclick="getNameservers()">Get Nameservers</button>
+            <div id="nsResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Get DNS Records -->
+        <div class="container">
+            <h2>📋 Get DNS Records</h2>
+            <div class="form-group">
+                <label for="recordsDomain">Domain:</label>
+                <input type="text" id="recordsDomain" placeholder="example.com">
+            </div>
+            <div class="form-group">
+                <label for="recordType">Record Type (optional):</label>
+                <select id="recordType">
+                    <option value="">All Types</option>
+                    <option value="A">A</option>
+                    <option value="AAAA">AAAA</option>
+                    <option value="CNAME">CNAME</option>
+                    <option value="MX">MX</option>
+                    <option value="TXT">TXT</option>
+                    <option value="NS">NS</option>
+                </select>
+            </div>
+            <button onclick="getDnsRecords()">Get Records</button>
+            <div id="recordsResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Add DNS Record -->
+        <div class="container">
+            <h2>➕ Add DNS Record</h2>
+            <div class="form-group">
+                <label for="addDomain">Domain:</label>
+                <input type="text" id="addDomain" placeholder="example.com">
+            </div>
+            <div class="form-group">
+                <label for="addType">Type:</label>
+                <select id="addType">
+                    <option value="A">A</option>
+                    <option value="AAAA">AAAA</option>
+                    <option value="CNAME">CNAME</option>
+                    <option value="MX">MX</option>
+                    <option value="TXT">TXT</option>
+                    <option value="NS">NS</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="addName">Name:</label>
+                <input type="text" id="addName" placeholder="subdomain or @ for root">
+            </div>
+            <div class="form-group">
+                <label for="addContent">Content:</label>
+                <input type="text" id="addContent" placeholder="192.168.1.1 or target.example.com">
+            </div>
+            <div class="form-group">
+                <label for="addTtl">TTL:</label>
+                <input type="number" id="addTtl" value="300" min="1">
+            </div>
+            <div class="form-group">
+                <label for="addPriority">Priority (for MX records):</label>
+                <input type="number" id="addPriority" placeholder="10">
+            </div>
+            <button onclick="addDnsRecord()">Add Record</button>
+            <div id="addResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Update DNS Record -->
+        <div class="container">
+            <h2>✏️ Update DNS Record</h2>
+            <div class="form-group">
+                <label for="updateDomain">Domain:</label>
+                <input type="text" id="updateDomain" placeholder="example.com">
+            </div>
+            <div class="form-group">
+                <label for="updateRecordId">Record ID:</label>
+                <input type="text" id="updateRecordId" placeholder="Get from DNS records list">
+            </div>
+            <div class="form-group">
+                <label for="updateType">Type:</label>
+                <select id="updateType">
+                    <option value="A">A</option>
+                    <option value="AAAA">AAAA</option>
+                    <option value="CNAME">CNAME</option>
+                    <option value="MX">MX</option>
+                    <option value="TXT">TXT</option>
+                    <option value="NS">NS</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="updateName">Name:</label>
+                <input type="text" id="updateName" placeholder="subdomain or @ for root">
+            </div>
+            <div class="form-group">
+                <label for="updateContent">Content:</label>
+                <input type="text" id="updateContent" placeholder="192.168.1.1 or target.example.com">
+            </div>
+            <div class="form-group">
+                <label for="updateTtl">TTL:</label>
+                <input type="number" id="updateTtl" value="300" min="1">
+            </div>
+            <button onclick="updateDnsRecord()">Update Record</button>
+            <div id="updateResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Find DNS Record -->
+        <div class="container">
+            <h2>🔍 Find DNS Record</h2>
+            <div class="form-group">
+                <label for="findDomain">Domain:</label>
+                <input type="text" id="findDomain" placeholder="example.com">
+            </div>
+            <div class="form-group">
+                <label for="findName">Record Name:</label>
+                <input type="text" id="findName" placeholder="subdomain.example.com">
+            </div>
+            <div class="form-group">
+                <label for="findType">Type (optional):</label>
+                <select id="findType">
+                    <option value="">Any Type</option>
+                    <option value="A">A</option>
+                    <option value="AAAA">AAAA</option>
+                    <option value="CNAME">CNAME</option>
+                    <option value="MX">MX</option>
+                    <option value="TXT">TXT</option>
+                    <option value="NS">NS</option>
+                </select>
+            </div>
+            <button onclick="findDnsRecord()">Find Record</button>
+            <div id="findResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Delete DNS Record -->
+        <div class="container">
+            <h2>🗑️ Delete DNS Record</h2>
+            <div class="form-group">
+                <label for="deleteDomain">Domain:</label>
+                <input type="text" id="deleteDomain" placeholder="example.com">
+            </div>
+            <div class="form-group">
+                <label for="deleteRecordId">Record ID:</label>
+                <input type="text" id="deleteRecordId" placeholder="Get from DNS records list">
+            </div>
+            <button onclick="deleteDnsRecord()" style="background-color: #dc3545;">Delete Record</button>
+            <div id="deleteResponse" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-fill domain fields
+        document.getElementById('testDomain').addEventListener('change', function() {
+            const domain = this.value;
+            document.getElementById('nsDomain').value = domain;
+            document.getElementById('recordsDomain').value = domain;
+            document.getElementById('addDomain').value = domain;
+            document.getElementById('updateDomain').value = domain;
+            document.getElementById('findDomain').value = domain;
+            document.getElementById('deleteDomain').value = domain;
+        });
+
+        function makeRequest(action, method = 'GET', data = null, domain = '') {
+            const baseUrl = document.getElementById('baseUrl').value;
+            let url = `${baseUrl}?action=${action}`;
+            if (domain) url += `&domain=${encodeURIComponent(domain)}`;
+
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+
+            if (data && method !== 'GET') {
+                options.body = JSON.stringify(data);
+            }
+
+            return fetch(url, options);
+        }
+
+        function displayResponse(elementId, response, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `response ${isError ? 'error' : 'success'}`;
+            element.textContent = JSON.stringify(response, null, 2);
+        }
+
+        async function getNameservers() {
+            const domain = document.getElementById('nsDomain').value;
+            if (!domain) {
+                alert('Please enter a domain');
+                return;
+            }
+
+            try {
+                const response = await makeRequest('nameservers', 'GET', null, domain);
+                const data = await response.json();
+                displayResponse('nsResponse', data, !data.success);
+            } catch (error) {
+                displayResponse('nsResponse', { error: error.message }, true);
+            }
+        }
+
+        async function getDnsRecords() {
+            const domain = document.getElementById('recordsDomain').value;
+            const type = document.getElementById('recordType').value;
+            
+            if (!domain) {
+                alert('Please enter a domain');
+                return;
+            }
+
+            try {
+                let url = `${document.getElementById('baseUrl').value}?action=records&domain=${encodeURIComponent(domain)}`;
+                if (type) url += `&type=${type}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                displayResponse('recordsResponse', data, !data.success);
+            } catch (error) {
+                displayResponse('recordsResponse', { error: error.message }, true);
+            }
+        }
+
+        async function addDnsRecord() {
+            const domain = document.getElementById('addDomain').value;
+            const type = document.getElementById('addType').value;
+            const name = document.getElementById('addName').value;
+            const content = document.getElementById('addContent').value;
+            const ttl = parseInt(document.getElementById('addTtl').value);
+            const priority = document.getElementById('addPriority').value;
+
+            if (!domain || !name || !content) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const data = { type, name, content, ttl };
+            if (priority && type === 'MX') {
+                data.priority = parseInt(priority);
+            }
+
+            try {
+                const response = await makeRequest('add', 'POST', data, domain);
+                const result = await response.json();
+                displayResponse('addResponse', result, !result.success);
+            } catch (error) {
+                displayResponse('addResponse', { error: error.message }, true);
+            }
+        }
+
+        async function updateDnsRecord() {
+            const domain = document.getElementById('updateDomain').value;
+            const recordId = document.getElementById('updateRecordId').value;
+            const type = document.getElementById('updateType').value;
+            const name = document.getElementById('updateName').value;
+            const content = document.getElementById('updateContent').value;
+            const ttl = parseInt(document.getElementById('updateTtl').value);
+
+            if (!domain || !recordId || !name || !content) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const data = { record_id: recordId, type, name, content, ttl };
+
+            try {
+                const response = await makeRequest('update', 'POST', data, domain);
+                const result = await response.json();
+                displayResponse('updateResponse', result, !result.success);
+            } catch (error) {
+                displayResponse('updateResponse', { error: error.message }, true);
+            }
+        }
+
+        async function findDnsRecord() {
+            const domain = document.getElementById('findDomain').value;
+            const name = document.getElementById('findName').value;
+            const type = document.getElementById('findType').value;
+
+            if (!domain || !name) {
+                alert('Please enter domain and record name');
+                return;
+            }
+
+            try {
+                let url = `${document.getElementById('baseUrl').value}?action=find&domain=${encodeURIComponent(domain)}&name=${encodeURIComponent(name)}`;
+                if (type) url += `&type=${type}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                displayResponse('findResponse', data, !data.success);
+            } catch (error) {
+                displayResponse('findResponse', { error: error.message }, true);
+            }
+        }
+
+        async function deleteDnsRecord() {
+            const domain = document.getElementById('deleteDomain').value;
+            const recordId = document.getElementById('deleteRecordId').value;
+
+            if (!domain || !recordId) {
+                alert('Please enter domain and record ID');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to delete this DNS record?')) {
+                return;
+            }
+
+            try {
+                const url = `${document.getElementById('baseUrl').value}?action=delete&domain=${encodeURIComponent(domain)}&record_id=${encodeURIComponent(recordId)}`;
+                const response = await fetch(url, { method: 'DELETE' });
+                const data = await response.json();
+                displayResponse('deleteResponse', data, !data.success);
+            } catch (error) {
+                displayResponse('deleteResponse', { error: error.message }, true);
+            }
+        }
+
+        // Initialize with test domain
+        document.getElementById('testDomain').dispatchEvent(new Event('change'));
+    </script>
+</body>
+</html>
