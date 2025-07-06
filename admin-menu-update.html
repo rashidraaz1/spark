@@ -1,0 +1,31 @@
+<!-- Add this section after your existing Domain Manager dropdown -->
+
+<li {!! Request::is('admin/cloudflare*') ? 'class="mm-active"' : '' !!}>
+    <a href="#">
+        <i class="livicon" data-name="cloud" data-c="#28a745" data-hc="#28a745" data-size="18" data-loop="true"></i>
+        <span class="title">Cloudflare DNS</span>
+        <span class="fas fa-angle-left"></span>
+    </a>
+    <ul class="sub-menu">
+        <li {!! Request::is('admin/cloudflare') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.index') }}">
+                <i class="fa fa-angle-double-right"></i> Dashboard
+            </a>
+        </li>
+        <li {!! Request::is('admin/cloudflare/nameservers') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.nameservers') }}">
+                <i class="fa fa-angle-double-right"></i> Nameservers
+            </a>
+        </li>
+        <li {!! Request::is('admin/cloudflare/dns-records') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.dns-records') }}">
+                <i class="fa fa-angle-double-right"></i> DNS Records
+            </a>
+        </li>
+        <li {!! Request::is('admin/cloudflare/add-record') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.add-record') }}">
+                <i class="fa fa-angle-double-right"></i> Add DNS Record
+            </a>
+        </li>
+    </ul>
+</li>
