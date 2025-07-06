@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Admin\Cloudflare;
 
 use App\Http\Controllers\Controller;
+use App\Models\CloudflareAccount;
+use App\Models\CloudflareDomain;
+use App\Models\CloudflareDnsRecord;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -10,15 +13,11 @@ use Exception;
 
 class CloudflareController extends Controller
 {
-    private $apiKey;
-    private $email;
     private $baseUrl = 'https://api.cloudflare.com/client/v4/';
     
     public function __construct()
     {
         $this->middleware('admin');
-        $this->apiKey = config('services.cloudflare.api_key');
-        $this->email = config('services.cloudflare.email');
     }
     
     /**
@@ -26,7 +25,11 @@ class CloudflareController extends Controller
      */
     public function index()
     {
-        return view('admin.cloudflare.index');
+        $accounts = CloudflareAccount::active()->with('domains')->get();
+        $totalDomains = CloudflareDomain::count();
+        $totalRecords = CloudflareDnsRecord::count();
+        
+        return view('admin.cloudflare.index', compact('accounts', 'totalDomains', 'totalRecords'));
     }
     
     /**
@@ -34,19 +37,24 @@ class CloudflareController extends Controller
      */
     public function nameservers(Request $request)
     {
+        $accounts = CloudflareAccount::active()->get();
         $domain = $request->input('domain');
+        $accountId = $request->input('account_id');
         
-        if (!$domain) {
-            return view('admin.cloudflare.nameservers');
+        if (!$domain || !$accountId) {
+            return view('admin.cloudflare.nameservers', compact('accounts'));
         }
         
         try {
-            $nameservers = $this->getNameservers($domain);
-            return view('admin.cloudflare.nameservers', compact('nameservers', 'domain'));
+            $account = CloudflareAccount::findOrFail($accountId);
+            $nameservers = $this->getNameservers($account, $domain);
+            return view('admin.cloudflare.nameservers', compact('nameservers', 'domain', 'accounts', 'accountId'));
         } catch (Exception $e) {
             return view('admin.cloudflare.nameservers', [
                 'error' => $e->getMessage(),
-                'domain' => $domain
+                'domain' => $domain,
+                'accounts' => $accounts,
+                'accountId' => $accountId
             ]);
         }
     }
@@ -103,8 +111,8 @@ class CloudflareController extends Controller
                 $request->type,
                 $request->name,
                 $request->content,
-                $request->ttl ?: 1,
-                $request->priority
+                (int)($request->ttl ?: 1),
+                $request->priority ? (int)$request->priority : null
             );
             
             if ($result['success']) {
@@ -167,8 +175,8 @@ class CloudflareController extends Controller
                 $request->type,
                 $request->name,
                 $request->content,
-                $request->ttl ?: 1,
-                $request->priority
+                (int)($request->ttl ?: 1),
+                $request->priority ? (int)$request->priority : null
             );
             
             if ($result['success']) {
@@ -250,10 +258,10 @@ class CloudflareController extends Controller
     /**
      * Get Cloudflare nameservers for a domain
      */
-    private function getNameservers($domain)
+    private function getNameservers(CloudflareAccount $account, $domain)
     {
-        $zoneId = $this->getZoneId($domain);
-        $response = $this->makeRequest('zones/' . $zoneId);
+        $zoneId = $this->getZoneId($account, $domain);
+        $response = $this->makeRequest($account, 'zones/' . $zoneId);
         
         return [
             'success' => true,
@@ -295,7 +303,7 @@ class CloudflareController extends Controller
             'type' => strtoupper($type),
             'name' => $name,
             'content' => $content,
-            'ttl' => $ttl
+            'ttl' => (int)$ttl
         ];
         
         if (strtoupper($type) === 'MX' && $priority !== null) {
@@ -322,7 +330,7 @@ class CloudflareController extends Controller
             'type' => strtoupper($type),
             'name' => $name,
             'content' => $content,
-            'ttl' => $ttl
+            'ttl' => (int)$ttl
         ];
         
         if (strtoupper($type) === 'MX' && $priority !== null) {
@@ -355,9 +363,9 @@ class CloudflareController extends Controller
     /**
      * Get zone ID for a domain
      */
-    private function getZoneId($domain)
+    private function getZoneId(CloudflareAccount $account, $domain)
     {
-        $response = $this->makeRequest('zones?name=' . urlencode($domain));
+        $response = $this->makeRequest($account, 'zones?name=' . urlencode($domain));
         
         if (empty($response['result'])) {
             throw new Exception('Domain not found in Cloudflare account: ' . $domain);
@@ -369,13 +377,13 @@ class CloudflareController extends Controller
     /**
      * Make API request to Cloudflare
      */
-    private function makeRequest($endpoint, $method = 'GET', $data = null)
+    private function makeRequest(CloudflareAccount $account, $endpoint, $method = 'GET', $data = null)
     {
         $url = $this->baseUrl . $endpoint;
         
         $headers = [
-            'X-Auth-Email' => $this->email,
-            'X-Auth-Key' => $this->apiKey,
+            'X-Auth-Email' => $account->email,
+            'X-Auth-Key' => $account->api_key,
             'Content-Type' => 'application/json'
         ];
         
@@ -404,7 +412,11 @@ class CloudflareController extends Controller
             return $responseData;
             
         } catch (Exception $e) {
-            Log::error('Cloudflare API Error: ' . $e->getMessage());
+            Log::error('Cloudflare API Error: ' . $e->getMessage(), [
+                'account_id' => $account->id,
+                'endpoint' => $endpoint,
+                'method' => $method
+            ]);
             throw $e;
         }
     }

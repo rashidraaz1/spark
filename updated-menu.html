@@ -1,0 +1,87 @@
+<!-- Updated Menu Structure for Enhanced Cloudflare Management -->
+
+<li {!! Request::is('admin/cloudflare*') ? 'class="mm-active"' : '' !!}>
+    <a href="#">
+        <i class="livicon" data-name="cloud" data-c="#28a745" data-hc="#28a745" data-size="18" data-loop="true"></i>
+        <span class="title">Cloudflare Management</span>
+        <span class="fas fa-angle-left"></span>
+    </a>
+    <ul class="sub-menu">
+        <li {!! Request::is('admin/cloudflare') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.index') }}">
+                <i class="fa fa-angle-double-right"></i> Dashboard
+            </a>
+        </li>
+        
+        <li {!! Request::is('admin/cloudflare/accounts*') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.accounts.index') }}">
+                <i class="fa fa-angle-double-right"></i> Manage Accounts
+            </a>
+        </li>
+        
+        <li>
+            <a href="#" onclick="showAddDomainModal()">
+                <i class="fa fa-angle-double-right"></i> Add Domain
+            </a>
+        </li>
+        
+        <li {!! Request::is('admin/cloudflare/nameservers') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.nameservers') }}">
+                <i class="fa fa-angle-double-right"></i> Get Nameservers
+            </a>
+        </li>
+        
+        <li {!! Request::is('admin/cloudflare/dns-records') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.dns-records') }}">
+                <i class="fa fa-angle-double-right"></i> DNS Records
+            </a>
+        </li>
+        
+        <li {!! Request::is('admin/cloudflare/add-record') ? 'class="active"' : '' !!}>
+            <a href="{{ route('admin.cloudflare.add-record') }}">
+                <i class="fa fa-angle-double-right"></i> Add DNS Record
+            </a>
+        </li>
+        
+        <li>
+            <a href="#" onclick="syncAllFromMenu()">
+                <i class="fa fa-angle-double-right"></i> Sync All Accounts
+            </a>
+        </li>
+    </ul>
+</li>
+
+<script>
+// Add these functions for menu actions
+function showAddDomainModal() {
+    // This will be available on pages that have the modal
+    if (typeof window.showAddDomainModal === 'function') {
+        window.showAddDomainModal();
+    } else {
+        window.location.href = '{{ route("admin.cloudflare.accounts.index") }}';
+    }
+}
+
+function syncAllFromMenu() {
+    if (confirm('Sync all Cloudflare accounts now?')) {
+        fetch('{{ route("admin.cloudflare.accounts.sync-all") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+            } else {
+                alert('❌ Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('❌ Error syncing accounts');
+        });
+    }
+}
+</script>

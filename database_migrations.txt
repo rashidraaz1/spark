@@ -1,0 +1,15 @@
+# Migration Commands (Run these individually)
+
+# 1. Create Cloudflare Accounts Table
+php artisan make:migration create_cloudflare_accounts_table
+
+# 2. Create Cloudflare Domains Table  
+php artisan make:migration create_cloudflare_domains_table
+
+# 3. Create Cloudflare DNS Records Table
+php artisan make:migration create_cloudflare_dns_records_table
+
+# Then run only these specific migrations:
+php artisan migrate --path=/database/migrations/2024_xx_xx_xxxxxx_create_cloudflare_accounts_table.php
+php artisan migrate --path=/database/migrations/2024_xx_xx_xxxxxx_create_cloudflare_domains_table.php  
+php artisan migrate --path=/database/migrations/2024_xx_xx_xxxxxx_create_cloudflare_dns_records_table.php
