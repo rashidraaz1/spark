@@ -38,5 +38,6 @@ Route::prefix('admin/cloudflare')->name('admin.cloudflare.')->middleware('admin'
         Route::get('/nameservers', [App\Http\Controllers\Admin\Cloudflare\CloudflareController::class, 'apiNameservers'])->name('nameservers');
         Route::get('/dns-records', [App\Http\Controllers\Admin\Cloudflare\CloudflareController::class, 'apiDnsRecords'])->name('dns-records');
         Route::get('/accounts/{account}/domains', [App\Http\Controllers\Admin\Cloudflare\CloudflareAccountController::class, 'getAccountDomains'])->name('accounts.domains');
+        Route::get('/debug-account', [App\Http\Controllers\Admin\Cloudflare\CloudflareController::class, 'debugAccount'])->name('debug-account');
     });
 });
