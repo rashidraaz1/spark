@@ -64,20 +64,25 @@ class CloudflareController extends Controller
      */
     public function dnsRecords(Request $request)
     {
+        $accounts = CloudflareAccount::active()->get();
         $domain = $request->input('domain');
+        $accountId = $request->input('account_id');
         $type = $request->input('type');
         
-        if (!$domain) {
-            return view('admin.cloudflare.dns-records');
+        if (!$domain || !$accountId) {
+            return view('admin.cloudflare.dns-records', compact('accounts'));
         }
         
         try {
-            $records = $this->getDnsRecords($domain, $type);
-            return view('admin.cloudflare.dns-records', compact('records', 'domain', 'type'));
+            $account = CloudflareAccount::findOrFail($accountId);
+            $records = $this->getDnsRecords($account, $domain, $type);
+            return view('admin.cloudflare.dns-records', compact('records', 'domain', 'type', 'accounts', 'accountId'));
         } catch (Exception $e) {
             return view('admin.cloudflare.dns-records', [
                 'error' => $e->getMessage(),
-                'domain' => $domain
+                'domain' => $domain,
+                'accounts' => $accounts,
+                'accountId' => $accountId
             ]);
         }
     }
@@ -87,8 +92,11 @@ class CloudflareController extends Controller
      */
     public function addRecordForm(Request $request)
     {
+        $accounts = CloudflareAccount::active()->get();
         $domain = $request->input('domain');
-        return view('admin.cloudflare.add-record', compact('domain'));
+        $accountId = $request->input('account_id');
+        
+        return view('admin.cloudflare.add-record', compact('domain', 'accounts', 'accountId'));
     }
     
     /**
@@ -97,6 +105,7 @@ class CloudflareController extends Controller
     public function addRecord(Request $request)
     {
         $request->validate([
+            'account_id' => 'required|exists:cloudflare_accounts,id',
             'domain' => 'required|string',
             'type' => 'required|string',
             'name' => 'required|string',
@@ -106,7 +115,9 @@ class CloudflareController extends Controller
         ]);
         
         try {
+            $account = CloudflareAccount::findOrFail($request->account_id);
             $result = $this->addDnsRecord(
+                $account,
                 $request->domain,
                 $request->type,
                 $request->name,
@@ -117,7 +128,10 @@ class CloudflareController extends Controller
             
             if ($result['success']) {
                 return redirect()
-                    ->route('admin.cloudflare.dns-records', ['domain' => $request->domain])
+                    ->route('admin.cloudflare.dns-records', [
+                        'domain' => $request->domain,
+                        'account_id' => $request->account_id
+                    ])
                     ->with('success', 'DNS record added successfully');
             } else {
                 return back()->with('error', $result['error'])->withInput();
@@ -133,21 +147,23 @@ class CloudflareController extends Controller
     public function editRecordForm(Request $request)
     {
         $domain = $request->input('domain');
+        $accountId = $request->input('account_id');
         $recordId = $request->input('record_id');
         
-        if (!$domain || !$recordId) {
-            return back()->with('error', 'Domain and record ID are required');
+        if (!$domain || !$accountId || !$recordId) {
+            return back()->with('error', 'Domain, account ID and record ID are required');
         }
         
         try {
-            $records = $this->getDnsRecords($domain);
+            $account = CloudflareAccount::findOrFail($accountId);
+            $records = $this->getDnsRecords($account, $domain);
             $record = collect($records['records'])->firstWhere('id', $recordId);
             
             if (!$record) {
                 return back()->with('error', 'Record not found');
             }
             
-            return view('admin.cloudflare.edit-record', compact('domain', 'record'));
+            return view('admin.cloudflare.edit-record', compact('domain', 'record', 'accountId'));
         } catch (Exception $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -159,6 +175,7 @@ class CloudflareController extends Controller
     public function updateRecord(Request $request)
     {
         $request->validate([
+            'account_id' => 'required|exists:cloudflare_accounts,id',
             'domain' => 'required|string',
             'record_id' => 'required|string',
             'type' => 'required|string',
@@ -169,7 +186,9 @@ class CloudflareController extends Controller
         ]);
         
         try {
+            $account = CloudflareAccount::findOrFail($request->account_id);
             $result = $this->updateDnsRecord(
+                $account,
                 $request->domain,
                 $request->record_id,
                 $request->type,
@@ -181,7 +200,10 @@ class CloudflareController extends Controller
             
             if ($result['success']) {
                 return redirect()
-                    ->route('admin.cloudflare.dns-records', ['domain' => $request->domain])
+                    ->route('admin.cloudflare.dns-records', [
+                        'domain' => $request->domain,
+                        'account_id' => $request->account_id
+                    ])
                     ->with('success', 'DNS record updated successfully');
             } else {
                 return back()->with('error', $result['error'])->withInput();
@@ -197,14 +219,16 @@ class CloudflareController extends Controller
     public function deleteRecord(Request $request)
     {
         $domain = $request->input('domain');
+        $accountId = $request->input('account_id');
         $recordId = $request->input('record_id');
         
-        if (!$domain || !$recordId) {
-            return response()->json(['success' => false, 'error' => 'Domain and record ID are required'], 400);
+        if (!$domain || !$accountId || !$recordId) {
+            return response()->json(['success' => false, 'error' => 'Domain, account ID and record ID are required'], 400);
         }
         
         try {
-            $result = $this->deleteDnsRecord($domain, $recordId);
+            $account = CloudflareAccount::findOrFail($accountId);
+            $result = $this->deleteDnsRecord($account, $domain, $recordId);
             
             if ($result['success']) {
                 return response()->json(['success' => true, 'message' => 'DNS record deleted successfully']);
@@ -222,13 +246,15 @@ class CloudflareController extends Controller
     public function apiNameservers(Request $request)
     {
         $domain = $request->input('domain');
+        $accountId = $request->input('account_id');
         
-        if (!$domain) {
-            return response()->json(['success' => false, 'error' => 'Domain is required'], 400);
+        if (!$domain || !$accountId) {
+            return response()->json(['success' => false, 'error' => 'Domain and account ID are required'], 400);
         }
         
         try {
-            $result = $this->getNameservers($domain);
+            $account = CloudflareAccount::findOrFail($accountId);
+            $result = $this->getNameservers($account, $domain);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
@@ -241,14 +267,16 @@ class CloudflareController extends Controller
     public function apiDnsRecords(Request $request)
     {
         $domain = $request->input('domain');
+        $accountId = $request->input('account_id');
         $type = $request->input('type');
         
-        if (!$domain) {
-            return response()->json(['success' => false, 'error' => 'Domain is required'], 400);
+        if (!$domain || !$accountId) {
+            return response()->json(['success' => false, 'error' => 'Domain and account ID are required'], 400);
         }
         
         try {
-            $result = $this->getDnsRecords($domain, $type);
+            $account = CloudflareAccount::findOrFail($accountId);
+            $result = $this->getDnsRecords($account, $domain, $type);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
@@ -266,38 +294,38 @@ class CloudflareController extends Controller
         return [
             'success' => true,
             'domain' => $domain,
-            'nameservers' => $response['result']['name_servers'],
-            'status' => $response['result']['status']
+            'nameservers' => $response['result']['name_servers'] ?? [],
+            'status' => $response['result']['status'] ?? 'unknown'
         ];
     }
     
     /**
      * Get DNS records for a domain
      */
-    private function getDnsRecords($domain, $type = null)
+    private function getDnsRecords(CloudflareAccount $account, $domain, $type = null)
     {
-        $zoneId = $this->getZoneId($domain);
+        $zoneId = $this->getZoneId($account, $domain);
         $endpoint = 'zones/' . $zoneId . '/dns_records';
         
         if ($type) {
             $endpoint .= '?type=' . urlencode($type);
         }
         
-        $response = $this->makeRequest($endpoint);
+        $response = $this->makeRequest($account, $endpoint);
         
         return [
             'success' => true,
             'domain' => $domain,
-            'records' => $response['result']
+            'records' => $response['result'] ?? []
         ];
     }
     
     /**
      * Add DNS record
      */
-    private function addDnsRecord($domain, $type, $name, $content, $ttl = 1, $priority = null)
+    private function addDnsRecord(CloudflareAccount $account, $domain, $type, $name, $content, $ttl = 1, $priority = null)
     {
-        $zoneId = $this->getZoneId($domain);
+        $zoneId = $this->getZoneId($account, $domain);
         
         $data = [
             'type' => strtoupper($type),
@@ -307,10 +335,10 @@ class CloudflareController extends Controller
         ];
         
         if (strtoupper($type) === 'MX' && $priority !== null) {
-            $data['priority'] = $priority;
+            $data['priority'] = (int)$priority;
         }
         
-        $response = $this->makeRequest('zones/' . $zoneId . '/dns_records', 'POST', $data);
+        $response = $this->makeRequest($account, 'zones/' . $zoneId . '/dns_records', 'POST', $data);
         
         return [
             'success' => true,
@@ -322,9 +350,9 @@ class CloudflareController extends Controller
     /**
      * Update DNS record
      */
-    private function updateDnsRecord($domain, $recordId, $type, $name, $content, $ttl = 1, $priority = null)
+    private function updateDnsRecord(CloudflareAccount $account, $domain, $recordId, $type, $name, $content, $ttl = 1, $priority = null)
     {
-        $zoneId = $this->getZoneId($domain);
+        $zoneId = $this->getZoneId($account, $domain);
         
         $data = [
             'type' => strtoupper($type),
@@ -334,10 +362,10 @@ class CloudflareController extends Controller
         ];
         
         if (strtoupper($type) === 'MX' && $priority !== null) {
-            $data['priority'] = $priority;
+            $data['priority'] = (int)$priority;
         }
         
-        $response = $this->makeRequest('zones/' . $zoneId . '/dns_records/' . $recordId, 'PUT', $data);
+        $response = $this->makeRequest($account, 'zones/' . $zoneId . '/dns_records/' . $recordId, 'PUT', $data);
         
         return [
             'success' => true,
@@ -349,10 +377,10 @@ class CloudflareController extends Controller
     /**
      * Delete DNS record
      */
-    private function deleteDnsRecord($domain, $recordId)
+    private function deleteDnsRecord(CloudflareAccount $account, $domain, $recordId)
     {
-        $zoneId = $this->getZoneId($domain);
-        $this->makeRequest('zones/' . $zoneId . '/dns_records/' . $recordId, 'DELETE');
+        $zoneId = $this->getZoneId($account, $domain);
+        $this->makeRequest($account, 'zones/' . $zoneId . '/dns_records/' . $recordId, 'DELETE');
         
         return [
             'success' => true,
@@ -365,13 +393,30 @@ class CloudflareController extends Controller
      */
     private function getZoneId(CloudflareAccount $account, $domain)
     {
+        // First try to get from local database
+        $localDomain = CloudflareDomain::where('cloudflare_account_id', $account->id)
+            ->where('domain_name', $domain)
+            ->first();
+            
+        if ($localDomain && $localDomain->zone_id) {
+            return $localDomain->zone_id;
+        }
+        
+        // If not found locally, fetch from Cloudflare API
         $response = $this->makeRequest($account, 'zones?name=' . urlencode($domain));
         
         if (empty($response['result'])) {
             throw new Exception('Domain not found in Cloudflare account: ' . $domain);
         }
         
-        return $response['result'][0]['id'];
+        $zoneId = $response['result'][0]['id'];
+        
+        // Update local database if domain exists
+        if ($localDomain) {
+            $localDomain->update(['zone_id' => $zoneId]);
+        }
+        
+        return $zoneId;
     }
     
     /**
@@ -403,9 +448,18 @@ class CloudflareController extends Controller
             $responseData = $response->json();
             
             if (!$response->successful()) {
-                $errorMsg = isset($responseData['errors'][0]['message']) 
-                    ? $responseData['errors'][0]['message'] 
-                    : 'HTTP Error: ' . $response->status();
+                $errorMsg = 'HTTP Error: ' . $response->status();
+                if (isset($responseData['errors'][0]['message'])) {
+                    $errorMsg = $responseData['errors'][0]['message'];
+                }
+                throw new Exception($errorMsg);
+            }
+            
+            if (!isset($responseData['success']) || !$responseData['success']) {
+                $errorMsg = 'API request failed';
+                if (isset($responseData['errors'][0]['message'])) {
+                    $errorMsg = $responseData['errors'][0]['message'];
+                }
                 throw new Exception($errorMsg);
             }
             
@@ -415,7 +469,8 @@ class CloudflareController extends Controller
             Log::error('Cloudflare API Error: ' . $e->getMessage(), [
                 'account_id' => $account->id,
                 'endpoint' => $endpoint,
-                'method' => $method
+                'method' => $method,
+                'data' => $data
             ]);
             throw $e;
         }

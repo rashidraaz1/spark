@@ -21,11 +21,22 @@
             <div class="panel-body">
                 <form method="GET" action="{{ route('admin.cloudflare.dns-records') }}" class="form-horizontal">
                     <div class="form-group">
-                        <label class="col-sm-2 control-label">Domain:</label>
-                        <div class="col-sm-4">
+                        <label class="col-sm-2 control-label">Account:</label>
+                        <div class="col-sm-3">
+                            <select name="account_id" class="form-control" required>
+                                <option value="">Select Cloudflare Account</option>
+                                @foreach($accounts as $account)
+                                    <option value="{{ $account->id }}" {{ (isset($accountId) && $accountId == $account->id) ? 'selected' : '' }}>
+                                        {{ $account->display_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <label class="col-sm-1 control-label">Domain:</label>
+                        <div class="col-sm-2">
                             <input type="text" name="domain" class="form-control" value="{{ $domain ?? '' }}" placeholder="example.com" required>
                         </div>
-                        <label class="col-sm-2 control-label">Record Type:</label>
+                        <label class="col-sm-1 control-label">Type:</label>
                         <div class="col-sm-2">
                             <select name="type" class="form-control">
                                 <option value="">All Types</option>
@@ -37,8 +48,8 @@
                                 <option value="NS" {{ ($type ?? '') == 'NS' ? 'selected' : '' }}>NS</option>
                             </select>
                         </div>
-                        <div class="col-sm-2">
-                            <button type="submit" class="btn btn-primary">
+                        <div class="col-sm-1">
+                            <button type="submit" class="btn btn-primary btn-block">
                                 <i class="fa fa-search"></i> Search
                             </button>
                         </div>
@@ -87,7 +98,7 @@
                     <h4 class="panel-title">
                         <i class="fa fa-list"></i> DNS Records for {{ $domain }}
                         <div class="pull-right">
-                            <a href="{{ route('admin.cloudflare.add-record', ['domain' => $domain]) }}" class="btn btn-sm btn-warning">
+                            <a href="{{ route('admin.cloudflare.add-record', ['domain' => $domain, 'account_id' => $accountId ?? '']) }}" class="btn btn-sm btn-warning">
                                 <i class="fa fa-plus"></i> Add Record
                             </a>
                         </div>
@@ -137,7 +148,7 @@
                                             </td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <a href="{{ route('admin.cloudflare.edit-record', ['domain' => $domain, 'record_id' => $record['id']]) }}" 
+                                                    <a href="{{ route('admin.cloudflare.edit-record', ['domain' => $domain, 'account_id' => $accountId ?? '', 'record_id' => $record['id']]) }}" 
                                                        class="btn btn-xs btn-info" title="Edit">
                                                         <i class="fa fa-edit"></i>
                                                     </a>
@@ -216,6 +227,7 @@ function confirmDelete() {
     
     const formData = new FormData();
     formData.append('domain', '{{ $domain ?? '' }}');
+    formData.append('account_id', '{{ $accountId ?? '' }}');
     formData.append('record_id', deleteRecordId);
     
     fetch('{{ route('admin.cloudflare.delete-record') }}', {

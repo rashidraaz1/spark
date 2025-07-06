@@ -55,7 +55,7 @@
                 </div>
                 
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="panel panel-warning">
                             <div class="panel-heading">
                                 <h4 class="panel-title">
@@ -71,7 +71,23 @@
                         </div>
                     </div>
                     
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <div class="panel panel-primary">
+                            <div class="panel-heading">
+                                <h4 class="panel-title">
+                                    <i class="fa fa-users"></i> Accounts
+                                </h4>
+                            </div>
+                            <div class="panel-body">
+                                <p>Manage your Cloudflare accounts</p>
+                                <a href="{{ route('admin.cloudflare.accounts.index') }}" class="btn btn-primary btn-block">
+                                    <i class="fa fa-cog"></i> Manage Accounts
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
                         <div class="panel panel-default">
                             <div class="panel-heading">
                                 <h4 class="panel-title">
@@ -99,16 +115,25 @@
                             <div class="panel-body">
                                 <form class="form-horizontal" id="quickActionForm">
                                     <div class="form-group">
-                                        <label class="col-sm-2 control-label">Domain:</label>
-                                        <div class="col-sm-4">
+                                        <label class="col-sm-2 control-label">Account:</label>
+                                        <div class="col-sm-3">
+                                            <select class="form-control" id="quickAccount">
+                                                <option value="">Select Account</option>
+                                                @foreach($accounts as $account)
+                                                    <option value="{{ $account->id }}">{{ $account->display_name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <label class="col-sm-1 control-label">Domain:</label>
+                                        <div class="col-sm-3">
                                             <input type="text" class="form-control" id="quickDomain" placeholder="example.com">
                                         </div>
-                                        <div class="col-sm-6">
-                                            <button type="button" class="btn btn-info" onclick="quickGetNameservers()">
-                                                <i class="fa fa-server"></i> Get Nameservers
+                                        <div class="col-sm-3">
+                                            <button type="button" class="btn btn-info btn-sm" onclick="quickGetNameservers()">
+                                                <i class="fa fa-server"></i> Nameservers
                                             </button>
-                                            <button type="button" class="btn btn-success" onclick="quickGetRecords()">
-                                                <i class="fa fa-list"></i> Get DNS Records
+                                            <button type="button" class="btn btn-success btn-sm" onclick="quickGetRecords()">
+                                                <i class="fa fa-list"></i> DNS Records
                                             </button>
                                         </div>
                                     </div>
@@ -184,12 +209,14 @@ function showHelp() {
 
 function quickGetNameservers() {
     const domain = document.getElementById('quickDomain').value;
-    if (!domain) {
-        alert('Please enter a domain');
+    const accountId = document.getElementById('quickAccount').value;
+    
+    if (!domain || !accountId) {
+        alert('Please select an account and enter a domain');
         return;
     }
     
-    fetch(`{{ route('admin.cloudflare.api.nameservers') }}?domain=${encodeURIComponent(domain)}`)
+    fetch(`{{ route('admin.cloudflare.api.nameservers') }}?domain=${encodeURIComponent(domain)}&account_id=${encodeURIComponent(accountId)}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('quickResults').style.display = 'block';
@@ -203,12 +230,14 @@ function quickGetNameservers() {
 
 function quickGetRecords() {
     const domain = document.getElementById('quickDomain').value;
-    if (!domain) {
-        alert('Please enter a domain');
+    const accountId = document.getElementById('quickAccount').value;
+    
+    if (!domain || !accountId) {
+        alert('Please select an account and enter a domain');
         return;
     }
     
-    fetch(`{{ route('admin.cloudflare.api.dns-records') }}?domain=${encodeURIComponent(domain)}`)
+    fetch(`{{ route('admin.cloudflare.api.dns-records') }}?domain=${encodeURIComponent(domain)}&account_id=${encodeURIComponent(accountId)}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('quickResults').style.display = 'block';

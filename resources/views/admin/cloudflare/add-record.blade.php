@@ -23,6 +23,23 @@
                     @csrf
                     
                     <div class="form-group">
+                        <label class="col-sm-3 control-label">Cloudflare Account <span class="text-danger">*</span></label>
+                        <div class="col-sm-9">
+                            <select name="account_id" class="form-control" required>
+                                <option value="">Select Cloudflare Account</option>
+                                @foreach($accounts as $account)
+                                    <option value="{{ $account->id }}" {{ (old('account_id') == $account->id || (isset($accountId) && $accountId == $account->id)) ? 'selected' : '' }}>
+                                        {{ $account->display_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($errors->has('account_id'))
+                                <span class="help-block text-danger">{{ $errors->first('account_id') }}</span>
+                            @endif
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
                         <label class="col-sm-3 control-label">Domain <span class="text-danger">*</span></label>
                         <div class="col-sm-9">
                             <input type="text" name="domain" class="form-control" value="{{ old('domain', $domain ?? '') }}" placeholder="example.com" required>
@@ -110,7 +127,7 @@
                             <button type="submit" class="btn btn-success">
                                 <i class="fa fa-plus"></i> Add DNS Record
                             </button>
-                            <a href="{{ route('admin.cloudflare.dns-records', ['domain' => $domain ?? '']) }}" class="btn btn-default">
+                            <a href="{{ route('admin.cloudflare.dns-records', ['domain' => $domain ?? '', 'account_id' => $accountId ?? '']) }}" class="btn btn-default">
                                 <i class="fa fa-arrow-left"></i> Back to Records
                             </a>
                         </div>

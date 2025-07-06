@@ -21,12 +21,23 @@
             <div class="panel-body">
                 <form method="GET" action="{{ route('admin.cloudflare.nameservers') }}" class="form-horizontal">
                     <div class="form-group">
-                        <label class="col-sm-2 control-label">Domain:</label>
-                        <div class="col-sm-6">
+                        <label class="col-sm-2 control-label">Account:</label>
+                        <div class="col-sm-4">
+                            <select name="account_id" class="form-control" required>
+                                <option value="">Select Cloudflare Account</option>
+                                @foreach($accounts as $account)
+                                    <option value="{{ $account->id }}" {{ (isset($accountId) && $accountId == $account->id) ? 'selected' : '' }}>
+                                        {{ $account->display_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <label class="col-sm-1 control-label">Domain:</label>
+                        <div class="col-sm-3">
                             <input type="text" name="domain" class="form-control" value="{{ $domain ?? '' }}" placeholder="example.com" required>
                         </div>
-                        <div class="col-sm-4">
-                            <button type="submit" class="btn btn-primary">
+                        <div class="col-sm-2">
+                            <button type="submit" class="btn btn-primary btn-block">
                                 <i class="fa fa-search"></i> Get Nameservers
                             </button>
                         </div>
@@ -96,10 +107,10 @@
                     <div class="row">
                         <div class="col-md-12">
                             <h5>Actions</h5>
-                            <a href="{{ route('admin.cloudflare.dns-records', ['domain' => $domain]) }}" class="btn btn-success">
+                            <a href="{{ route('admin.cloudflare.dns-records', ['domain' => $domain, 'account_id' => $accountId ?? '']) }}" class="btn btn-success">
                                 <i class="fa fa-list"></i> View DNS Records
                             </a>
-                            <a href="{{ route('admin.cloudflare.add-record', ['domain' => $domain]) }}" class="btn btn-warning">
+                            <a href="{{ route('admin.cloudflare.add-record', ['domain' => $domain, 'account_id' => $accountId ?? '']) }}" class="btn btn-warning">
                                 <i class="fa fa-plus"></i> Add DNS Record
                             </a>
                             <button class="btn btn-info" onclick="copyAllNameservers()">

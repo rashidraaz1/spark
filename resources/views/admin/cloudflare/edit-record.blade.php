@@ -22,6 +22,7 @@
                 <form method="POST" action="{{ route('admin.cloudflare.edit-record.update') }}" class="form-horizontal">
                     @csrf
                     <input type="hidden" name="record_id" value="{{ $record['id'] }}">
+                    <input type="hidden" name="account_id" value="{{ $accountId ?? '' }}">
                     
                     <div class="form-group">
                         <label class="col-sm-3 control-label">Domain <span class="text-danger">*</span></label>
@@ -111,7 +112,7 @@
                             <button type="submit" class="btn btn-success">
                                 <i class="fa fa-save"></i> Update DNS Record
                             </button>
-                            <a href="{{ route('admin.cloudflare.dns-records', ['domain' => $domain]) }}" class="btn btn-default">
+                            <a href="{{ route('admin.cloudflare.dns-records', ['domain' => $domain, 'account_id' => $accountId ?? '']) }}" class="btn btn-default">
                                 <i class="fa fa-arrow-left"></i> Back to Records
                             </a>
                         </div>
