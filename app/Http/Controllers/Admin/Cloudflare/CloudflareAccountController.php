@@ -73,17 +73,38 @@ class CloudflareAccountController extends Controller
             }
             
             // Test the connection and sync domains
-            $this->syncAccountDomains($account->id);
+            try {
+                $syncedCount = $this->syncAccountDomains($account->id);
+                $successMessage = "Cloudflare account added successfully! Synced {$syncedCount} domains.";
+            } catch (Exception $syncError) {
+                // Account was created but sync failed - this is ok, they can sync later
+                Log::warning('Account created but sync failed', [
+                    'account_id' => $account->id,
+                    'error' => $syncError->getMessage()
+                ]);
+                $successMessage = 'Cloudflare account added successfully! However, initial sync failed: ' . $syncError->getMessage() . '. You can try syncing again from the accounts page.';
+            }
             
             DB::commit();
             
             return redirect()->route('admin.cloudflare.accounts.index')
-                ->with('success', 'Cloudflare account added successfully and domains synced!');
+                ->with('success', $successMessage);
                 
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Error creating Cloudflare account: ' . $e->getMessage());
-            return back()->with('error', 'Error: ' . $e->getMessage())->withInput();
+            
+            // Provide more specific error messages
+            $errorMessage = $e->getMessage();
+            if (strpos($errorMessage, 'Invalid request headers') !== false) {
+                $errorMessage = 'Invalid API credentials. Please check your email and API key.';
+            } elseif (strpos($errorMessage, 'Authentication failed') !== false) {
+                $errorMessage = 'Authentication failed. Please verify your Cloudflare email and API key.';
+            } elseif (strpos($errorMessage, 'rate limit') !== false) {
+                $errorMessage = 'Cloudflare API rate limit exceeded. Please try again later.';
+            }
+            
+            return back()->with('error', 'Error creating account: ' . $errorMessage)->withInput();
         }
     }
     
@@ -228,6 +249,62 @@ class CloudflareAccountController extends Controller
     }
     
     /**
+     * Test connection to Cloudflare API
+     */
+    public function testConnection(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'api_key' => 'required|string'
+        ]);
+        
+        try {
+            // Create a temporary account object for testing
+            $testAccount = new CloudflareAccount([
+                'email' => $request->email,
+                'api_key' => $request->api_key
+            ]);
+            
+            // Try to get zones (this will test the connection)
+            $zones = $this->getCloudflareZones($testAccount);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Connection successful! Found ' . count($zones) . ' domains.',
+                'domains_count' => count($zones)
+            ]);
+            
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+    
+    /**
+     * Test existing account connection
+     */
+    public function testAccountConnection(CloudflareAccount $account)
+    {
+        try {
+            $zones = $this->getCloudflareZones($account);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Connection successful! Found ' . count($zones) . ' domains.',
+                'domains_count' => count($zones)
+            ]);
+            
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+    
+    /**
      * Sync all accounts
      */
     public function syncAllAccounts()
@@ -266,6 +343,12 @@ class CloudflareAccountController extends Controller
         $syncedDomains = 0;
         
         foreach ($zones as $zone) {
+            // Validate zone data has required fields
+            if (!isset($zone['id']) || !isset($zone['name'])) {
+                Log::warning('Invalid zone data received from Cloudflare', ['zone' => $zone, 'account_id' => $account->id]);
+                continue;
+            }
+            
             $domain = CloudflareDomain::updateOrCreate(
                 [
                     'cloudflare_account_id' => $account->id,
@@ -273,10 +356,10 @@ class CloudflareAccountController extends Controller
                 ],
                 [
                     'domain_name' => $zone['name'],
-                    'status' => $zone['status'],
-                    'nameservers' => $zone['name_servers'] ?? [],
-                    'plan_name' => $zone['plan']['name'] ?? null,
-                    'plan_id' => $zone['plan']['id'] ?? null,
+                    'status' => $zone['status'] ?? 'unknown',
+                    'nameservers' => isset($zone['name_servers']) ? $zone['name_servers'] : [],
+                    'plan_name' => isset($zone['plan']['name']) ? $zone['plan']['name'] : 'free',
+                    'plan_id' => isset($zone['plan']['id']) ? $zone['plan']['id'] : null,
                     'created_on_cloudflare' => $zone['created_on'] ?? null,
                     'modified_on_cloudflare' => $zone['modified_on'] ?? null,
                     'last_synced_at' => now(),
@@ -344,8 +427,26 @@ class CloudflareAccountController extends Controller
      */
     private function getCloudflareZones(CloudflareAccount $account)
     {
-        $response = $this->makeCloudflareRequest($account, 'zones');
-        return $response['result'] ?? [];
+        try {
+            $response = $this->makeCloudflareRequest($account, 'zones');
+            
+            if (!isset($response['success']) || !$response['success']) {
+                $errorMsg = 'API request failed';
+                if (isset($response['errors']) && is_array($response['errors']) && count($response['errors']) > 0) {
+                    $errorMsg = $response['errors'][0]['message'] ?? $errorMsg;
+                }
+                throw new Exception($errorMsg);
+            }
+            
+            return $response['result'] ?? [];
+            
+        } catch (Exception $e) {
+            Log::error('Failed to get Cloudflare zones', [
+                'account_id' => $account->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
     
     /**

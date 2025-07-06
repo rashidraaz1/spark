@@ -324,21 +324,20 @@ function testConnection() {
     button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Testing...';
     button.disabled = true;
     
-    // Test connection using the account's credentials
-    fetch('https://api.cloudflare.com/client/v4/zones', {
+    // Use server-side endpoint to test account connection
+    fetch('{{ route('admin.cloudflare.accounts.test-connection', $account) }}', {
+        method: 'POST',
         headers: {
-            'X-Auth-Email': '{{ $account->email }}',
-            'X-Auth-Key': '{{ $account->api_key }}',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
             'Content-Type': 'application/json'
         }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showNotification('success', `✅ Connection successful! Found ${data.result.length} domains.`);
+            showNotification('success', `✅ ${data.message}`);
         } else {
-            const error = data.errors && data.errors.length > 0 ? data.errors[0].message : 'Invalid credentials';
-            showNotification('error', `❌ Connection failed: ${error}`);
+            showNotification('error', `❌ Connection failed: ${data.error}`);
         }
     })
     .catch(error => {

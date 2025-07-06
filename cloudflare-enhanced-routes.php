@@ -18,6 +18,8 @@ Route::prefix('admin/cloudflare')->name('admin.cloudflare.')->middleware('admin'
         
         // Account Actions
         Route::post('/{account}/sync', [App\Http\Controllers\Admin\Cloudflare\CloudflareAccountController::class, 'syncDomains'])->name('sync');
+        Route::post('/{account}/test-connection', [App\Http\Controllers\Admin\Cloudflare\CloudflareAccountController::class, 'testAccountConnection'])->name('test-connection');
+        Route::post('/test-connection', [App\Http\Controllers\Admin\Cloudflare\CloudflareAccountController::class, 'testConnection'])->name('test-connection.new');
         Route::post('/sync-all', [App\Http\Controllers\Admin\Cloudflare\CloudflareAccountController::class, 'syncAllAccounts'])->name('sync-all');
         Route::post('/add-domain', [App\Http\Controllers\Admin\Cloudflare\CloudflareAccountController::class, 'addDomain'])->name('add-domain');
     });

@@ -244,9 +244,6 @@ function testConnection() {
     const email = document.querySelector('input[name="email"]').value;
     const apiKey = document.querySelector('input[name="api_key"]').value;
     
-    // Use current API key if none provided
-    const testApiKey = apiKey || '{{ $account->api_key }}';
-    
     if (!email) {
         alert('Please enter email before testing connection.');
         return;
@@ -257,30 +254,59 @@ function testConnection() {
     button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Testing...';
     button.disabled = true;
     
-    // Test connection
-    fetch('https://api.cloudflare.com/client/v4/zones', {
-        headers: {
-            'X-Auth-Email': email,
-            'X-Auth-Key': testApiKey,
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('success', `✅ Connection successful! Found ${data.result.length} domains.`);
-        } else {
-            const error = data.errors && data.errors.length > 0 ? data.errors[0].message : 'Invalid credentials';
-            showNotification('error', `❌ Connection failed: ${error}`);
-        }
-    })
-    .catch(error => {
-        showNotification('error', '❌ Connection test failed. Please check your credentials.');
-    })
-    .finally(() => {
-        button.innerHTML = originalText;
-        button.disabled = false;
-    });
+    // If no new API key provided, test existing account connection
+    if (!apiKey) {
+        fetch('{{ route('admin.cloudflare.accounts.test-connection', $account) }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('success', `✅ ${data.message}`);
+            } else {
+                showNotification('error', `❌ Connection failed: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            showNotification('error', '❌ Connection test failed. Please check your credentials.');
+        })
+        .finally(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    } else {
+        // Test with new credentials
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('api_key', apiKey);
+        
+        fetch('{{ route('admin.cloudflare.accounts.test-connection.new') }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('success', `✅ ${data.message}`);
+            } else {
+                showNotification('error', `❌ Connection failed: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            showNotification('error', '❌ Connection test failed. Please check your credentials.');
+        })
+        .finally(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    }
 }
 
 function syncAccount() {

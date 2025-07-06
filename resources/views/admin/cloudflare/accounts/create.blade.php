@@ -185,21 +185,24 @@ function testConnection() {
     button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Testing...';
     button.disabled = true;
     
-    // Create a temporary test
-    fetch('https://api.cloudflare.com/client/v4/zones', {
+    // Use server-side test endpoint to avoid CORS issues
+    const formData = new FormData();
+    formData.append('email', email);
+    formData.append('api_key', apiKey);
+    
+    fetch('{{ route('admin.cloudflare.accounts.test-connection.new') }}', {
+        method: 'POST',
+        body: formData,
         headers: {
-            'X-Auth-Email': email,
-            'X-Auth-Key': apiKey,
-            'Content-Type': 'application/json'
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
         }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showNotification('success', `✅ Connection successful! Found ${data.result.length} domains.`);
+            showNotification('success', `✅ ${data.message}`);
         } else {
-            const error = data.errors && data.errors.length > 0 ? data.errors[0].message : 'Invalid credentials';
-            showNotification('error', `❌ Connection failed: ${error}`);
+            showNotification('error', `❌ Connection failed: ${data.error}`);
         }
     })
     .catch(error => {
