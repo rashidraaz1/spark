@@ -229,9 +229,10 @@ function confirmDelete() {
     formData.append('domain', '{{ $domain ?? '' }}');
     formData.append('account_id', '{{ $accountId ?? '' }}');
     formData.append('record_id', deleteRecordId);
+    formData.append('_method', 'DELETE');
     
-    fetch('{{ route('admin.cloudflare.delete-record') }}', {
-        method: 'DELETE',
+    fetch('{{ url('/admin/cloudflare/delete-record') }}', {
+        method: 'POST',
         body: formData,
         headers: {
             'X-CSRF-TOKEN': '{{ csrf_token() }}'

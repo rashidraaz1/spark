@@ -313,15 +313,31 @@ class CloudflareAccountController extends Controller
         try {
             $accounts = CloudflareAccount::active()->get();
             $syncedCount = 0;
+            $errors = [];
             
             foreach ($accounts as $account) {
-                $this->syncAccountDomains($account->id);
-                $syncedCount++;
+                try {
+                    $this->syncAccountDomains($account->id);
+                    $syncedCount++;
+                } catch (Exception $e) {
+                    $errors[] = "Account {$account->display_name}: " . $e->getMessage();
+                    Log::error('Failed to sync account', [
+                        'account_id' => $account->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
+            $message = "Synced {$syncedCount} accounts successfully!";
+            if (!empty($errors)) {
+                $message .= ' Errors: ' . implode('; ', $errors);
             }
             
             return response()->json([
                 'success' => true,
-                'message' => "Synced {$syncedCount} accounts successfully!"
+                'message' => $message,
+                'synced_count' => $syncedCount,
+                'errors' => $errors
             ]);
         } catch (Exception $e) {
             return response()->json([
@@ -345,33 +361,58 @@ class CloudflareAccountController extends Controller
         
         foreach ($zones as $zone) {
             // Validate zone data has required fields
-            if (!isset($zone['id']) || !isset($zone['name'])) {
-                Log::warning('Invalid zone data received from Cloudflare', ['zone' => $zone, 'account_id' => $account->id]);
+            if (!is_array($zone) || !isset($zone['id']) || !isset($zone['name'])) {
+                Log::warning('Invalid zone data received from Cloudflare', [
+                    'zone' => $zone, 
+                    'account_id' => $account->id,
+                    'zone_type' => gettype($zone)
+                ]);
                 continue;
             }
             
-            $domain = CloudflareDomain::updateOrCreate(
-                [
-                    'cloudflare_account_id' => $account->id,
-                    'zone_id' => $zone['id']
-                ],
-                [
-                    'domain_name' => $zone['name'],
-                    'status' => $zone['status'] ?? 'unknown',
-                    'nameservers' => isset($zone['name_servers']) ? $zone['name_servers'] : [],
-                    'plan_name' => isset($zone['plan']['name']) ? $zone['plan']['name'] : 'free',
-                    'plan_id' => isset($zone['plan']['id']) ? $zone['plan']['id'] : null,
-                    'created_on_cloudflare' => $zone['created_on'] ?? null,
-                    'modified_on_cloudflare' => $zone['modified_on'] ?? null,
-                    'last_synced_at' => now(),
-                    'sync_status' => 'synced',
-                    'is_active' => true
-                ]
-            );
-            
-            // Sync DNS records for this domain
-            $this->syncDomainDnsRecords($domain);
-            $syncedDomains++;
+            try {
+                $domain = CloudflareDomain::updateOrCreate(
+                    [
+                        'cloudflare_account_id' => $account->id,
+                        'zone_id' => $zone['id']
+                    ],
+                    [
+                        'domain_name' => $zone['name'],
+                        'status' => $zone['status'] ?? 'unknown',
+                        'nameservers' => isset($zone['name_servers']) && is_array($zone['name_servers']) ? $zone['name_servers'] : [],
+                        'plan_name' => isset($zone['plan']['name']) ? $zone['plan']['name'] : 'free',
+                        'plan_id' => isset($zone['plan']['id']) ? $zone['plan']['id'] : null,
+                        'created_on_cloudflare' => $zone['created_on'] ?? null,
+                        'modified_on_cloudflare' => $zone['modified_on'] ?? null,
+                        'last_synced_at' => now(),
+                        'sync_status' => 'synced',
+                        'is_active' => true
+                    ]
+                );
+                
+                // Sync DNS records for this domain
+                try {
+                    $this->syncDomainDnsRecords($domain);
+                } catch (Exception $dnsError) {
+                    Log::warning('Failed to sync DNS records for domain', [
+                        'domain_id' => $domain->id,
+                        'domain_name' => $domain->domain_name,
+                        'error' => $dnsError->getMessage()
+                    ]);
+                    // Continue with other domains even if DNS sync fails
+                }
+                
+                $syncedDomains++;
+                
+            } catch (Exception $domainError) {
+                Log::error('Failed to sync domain', [
+                    'zone' => $zone,
+                    'account_id' => $account->id,
+                    'error' => $domainError->getMessage()
+                ]);
+                // Continue with other domains
+                continue;
+            }
         }
         
         // Update account stats
@@ -389,32 +430,69 @@ class CloudflareAccountController extends Controller
     private function syncDomainDnsRecords(CloudflareDomain $domain)
     {
         $account = $domain->cloudflareAccount;
-        $dnsRecords = $this->getCloudfareDnsRecords($account, $domain->zone_id);
+        
+        if (!$domain->zone_id) {
+            Log::warning('Domain has no zone_id, skipping DNS sync', [
+                'domain_id' => $domain->id,
+                'domain_name' => $domain->domain_name
+            ]);
+            return 0;
+        }
+        
+        try {
+            $dnsRecords = $this->getCloudfareDnsRecords($account, $domain->zone_id);
+        } catch (Exception $e) {
+            Log::error('Failed to get DNS records for domain', [
+                'domain_id' => $domain->id,
+                'zone_id' => $domain->zone_id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
         
         $syncedRecords = 0;
         
         foreach ($dnsRecords as $record) {
-            CloudflareDnsRecord::updateOrCreate(
-                [
-                    'cloudflare_domain_id' => $domain->id,
-                    'cloudflare_record_id' => $record['id']
-                ],
-                [
-                    'zone_id' => $record['zone_id'],
-                    'type' => $record['type'],
-                    'name' => $record['name'],
-                    'content' => $record['content'],
-                    'ttl' => $record['ttl'],
-                    'priority' => $record['priority'] ?? null,
-                    'proxied' => $record['proxied'] ?? false,
-                    'locked' => $record['locked'] ?? false,
-                    'created_on_cloudflare' => $record['created_on'] ?? null,
-                    'modified_on_cloudflare' => $record['modified_on'] ?? null,
-                    'last_synced_at' => now(),
-                    'sync_status' => 'synced'
-                ]
-            );
-            $syncedRecords++;
+            // Validate record data
+            if (!is_array($record) || !isset($record['id']) || !isset($record['type'])) {
+                Log::warning('Invalid DNS record data', [
+                    'domain_id' => $domain->id,
+                    'record' => $record
+                ]);
+                continue;
+            }
+            
+            try {
+                CloudflareDnsRecord::updateOrCreate(
+                    [
+                        'cloudflare_domain_id' => $domain->id,
+                        'cloudflare_record_id' => $record['id']
+                    ],
+                    [
+                        'zone_id' => $record['zone_id'] ?? $domain->zone_id,
+                        'type' => $record['type'],
+                        'name' => $record['name'] ?? '',
+                        'content' => $record['content'] ?? '',
+                        'ttl' => isset($record['ttl']) ? (int)$record['ttl'] : 1,
+                        'priority' => isset($record['priority']) ? (int)$record['priority'] : null,
+                        'proxied' => isset($record['proxied']) ? (bool)$record['proxied'] : false,
+                        'locked' => isset($record['locked']) ? (bool)$record['locked'] : false,
+                        'created_on_cloudflare' => $record['created_on'] ?? null,
+                        'modified_on_cloudflare' => $record['modified_on'] ?? null,
+                        'last_synced_at' => now(),
+                        'sync_status' => 'synced'
+                    ]
+                );
+                $syncedRecords++;
+            } catch (Exception $recordError) {
+                Log::error('Failed to sync DNS record', [
+                    'domain_id' => $domain->id,
+                    'record' => $record,
+                    'error' => $recordError->getMessage()
+                ]);
+                // Continue with other records
+                continue;
+            }
         }
         
         // Update domain DNS records count

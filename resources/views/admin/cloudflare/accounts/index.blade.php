@@ -205,7 +205,7 @@ function syncAccount(accountId) {
     button.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
     button.disabled = true;
     
-    fetch(`{{ route('admin.cloudflare.accounts.sync', '') }}/${accountId}`, {
+    fetch(`{{ url('/admin/cloudflare/accounts') }}/${accountId}/sync`, {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -236,7 +236,7 @@ function syncAllAccounts() {
     button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Syncing...';
     button.disabled = true;
     
-    fetch('{{ route('admin.cloudflare.accounts.sync-all') }}', {
+    fetch('{{ url('/admin/cloudflare/accounts/sync-all') }}', {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -269,7 +269,7 @@ function submitAddDomain() {
     const form = document.getElementById('addDomainForm');
     const formData = new FormData(form);
     
-    fetch('{{ route('admin.cloudflare.accounts.add-domain') }}', {
+    fetch('{{ url('/admin/cloudflare/accounts/add-domain') }}', {
         method: 'POST',
         body: formData,
         headers: {

@@ -293,7 +293,7 @@ function syncAccount() {
     button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Syncing...';
     button.disabled = true;
     
-    fetch('{{ route('admin.cloudflare.accounts.sync', $account) }}', {
+    fetch('{{ url('/admin/cloudflare/accounts/' . $account->id . '/sync') }}', {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -325,7 +325,7 @@ function testConnection() {
     button.disabled = true;
     
     // Use server-side endpoint to test account connection
-    fetch('{{ route('admin.cloudflare.accounts.test-connection', $account) }}', {
+    fetch('{{ url('/admin/cloudflare/accounts/' . $account->id . '/test-connection') }}', {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -362,7 +362,7 @@ function submitAddDomain() {
     button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Adding...';
     button.disabled = true;
     
-    fetch('{{ route('admin.cloudflare.accounts.add-domain') }}', {
+    fetch('{{ url('/admin/cloudflare/accounts/add-domain') }}', {
         method: 'POST',
         body: formData,
         headers: {

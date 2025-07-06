@@ -32,6 +32,7 @@ Route::prefix('admin/cloudflare')->name('admin.cloudflare.')->middleware('admin'
     Route::get('/edit-record', [App\Http\Controllers\Admin\Cloudflare\CloudflareController::class, 'editRecordForm'])->name('edit-record');
     Route::post('/edit-record', [App\Http\Controllers\Admin\Cloudflare\CloudflareController::class, 'updateRecord'])->name('edit-record.update');
     Route::delete('/delete-record', [App\Http\Controllers\Admin\Cloudflare\CloudflareController::class, 'deleteRecord'])->name('delete-record');
+    Route::post('/delete-record', [App\Http\Controllers\Admin\Cloudflare\CloudflareController::class, 'deleteRecord'])->name('delete-record.post');
     
     // API Routes
     Route::prefix('api')->name('api.')->group(function () {

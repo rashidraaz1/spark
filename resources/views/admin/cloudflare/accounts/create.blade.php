@@ -190,7 +190,7 @@ function testConnection() {
     formData.append('email', email);
     formData.append('api_key', apiKey);
     
-    fetch('{{ route('admin.cloudflare.accounts.test-connection.new') }}', {
+    fetch('{{ url('/admin/cloudflare/accounts/test-connection') }}', {
         method: 'POST',
         body: formData,
         headers: {

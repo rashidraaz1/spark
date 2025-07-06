@@ -256,7 +256,7 @@ function testConnection() {
     
     // If no new API key provided, test existing account connection
     if (!apiKey) {
-        fetch('{{ route('admin.cloudflare.accounts.test-connection', $account) }}', {
+        fetch('{{ url('/admin/cloudflare/accounts/' . $account->id . '/test-connection') }}', {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -284,7 +284,7 @@ function testConnection() {
         formData.append('email', email);
         formData.append('api_key', apiKey);
         
-        fetch('{{ route('admin.cloudflare.accounts.test-connection.new') }}', {
+        fetch('{{ url('/admin/cloudflare/accounts/test-connection') }}', {
             method: 'POST',
             body: formData,
             headers: {
@@ -319,13 +319,13 @@ function syncAccount() {
     button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Syncing...';
     button.disabled = true;
     
-    fetch('{{ route('admin.cloudflare.accounts.sync', $account) }}', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'Content-Type': 'application/json'
-        }
-    })
+            fetch('{{ url('/admin/cloudflare/accounts/' . $account->id . '/sync') }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json'
+            }
+        })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
